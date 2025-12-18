@@ -1,68 +1,77 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend, AreaChart, Area
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { 
   LayoutDashboard, Users, Calendar, MapPin, 
-  Search, Filter, CheckCircle2, AlertCircle, 
-  Clock, LogOut, ChevronRight, Menu, X, Info, 
-  Activity, ShieldAlert, Tent, Truck, Building2,
-  Database, Zap
+  Search, CheckCircle2, AlertCircle, 
+  LogOut, Activity, ShieldAlert, Tent, 
+  Database, Zap, ListFilter, ArrowRightLeft,
+  Menu
 } from 'lucide-react';
 import { RAW_DATA } from './data';
 import { Employee } from './types';
 
-// Components
-const StatCard = ({ title, value, icon: Icon, color, shadowColor, onClick, active }: { 
-  title: string, value: number | string, icon: any, color: string, shadowColor: string, onClick?: () => void, active?: boolean 
+type ViewType = 'dashboard' | 'personnel' | 'calendar' | 'map';
+
+const StatCard = ({ title, value, icon: Icon, color, active, onClick, subtitle }: { 
+  title: string, value: number, icon: any, color: string, active: boolean, onClick: () => void, subtitle?: string
 }) => (
   <div 
     onClick={onClick}
-    className={`glass-effect p-5 rounded-2xl flex items-center justify-between border transition-all cursor-pointer ${active ? 'border-white/40 scale-[1.05] ring-2 ring-white/10' : 'border-white/5 hover:border-white/20 hover:scale-[1.02]'} group relative overflow-hidden`}
+    className={`glass-effect p-5 rounded-2xl flex items-center justify-between border cursor-pointer transition-all duration-300 ${
+      active ? 'border-cyan-500/50 bg-cyan-500/10 scale-[1.03] shadow-[0_0_30px_rgba(6,182,212,0.15)]' : 'border-white/5 hover:border-white/20'
+    }`}
   >
-    <div className={`absolute top-0 left-0 w-1 h-full ${color}`}></div>
-    <div className="relative z-10">
-      <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-1">{title}</p>
-      <h3 className="text-3xl font-futuristic text-white font-bold tracking-tighter">{value}</h3>
+    <div className="flex flex-col">
+      <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{title}</span>
+      <span className={`text-3xl font-futuristic font-black transition-colors ${active ? 'text-cyan-400' : 'text-white'}`}>{value}</span>
+      {subtitle && <span className="text-[9px] text-slate-500 font-bold mt-1 uppercase">{subtitle}</span>}
     </div>
-    <div className={`p-3 rounded-xl bg-slate-900/80 border border-white/5 shadow-lg ${shadowColor} transition-transform group-hover:rotate-12`}>
-      <Icon size={22} className={`${color.replace('bg-', 'text-')}`} />
+    <div className={`p-3 rounded-xl bg-slate-900/80 border border-white/5 transition-all ${active ? 'text-cyan-400 scale-110 shadow-lg' : 'text-slate-500'} ${color}`}>
+      <Icon size={22} />
     </div>
   </div>
 );
 
 const App: React.FC = () => {
+  const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-  // Helper to normalize strings
   const normalizeLoc = (loc: string) => loc.charAt(0).toUpperCase() + loc.slice(1).toLowerCase().trim();
 
-  // Process data with precise mapping to match user's requested counts (Total 242)
+  // MOTOR DE DATOS: Lógica de exclusión estricta para garantizar (74, 127, 3)
   const processedData = useMemo(() => {
     return RAW_DATA.map(emp => {
       const f = emp.fechaDescanso.toLowerCase();
       let status = 'Other';
       
-      // Lógica estricta de categorías
-      if (f.includes('26 de diciembre') && f.includes('02 de enero') || f.includes('26 de diciembre y 02 de enero') || f.includes('26 de diciembre y 02 de enero')) {
-        status = 'Both'; // 3 personas
-      } else if (f.includes('26 de diciembre')) {
-        status = '26-Dec'; // 74 personas
-      } else if (f.includes('2 de enero') || f.includes('02 de enero')) {
-        status = '02-Jan'; // 127 personas
-      } else if (f.includes('vacaciones')) {
-        status = 'Vacations'; // 10 personas
+      const hasDec26 = f.includes('26 de diciembre');
+      const hasJan02 = f.includes('2 de enero') || f.includes('02 de enero');
+
+      // 1. Prioridad: Ambos días (3 registros)
+      if (hasDec26 && hasJan02) {
+        status = 'Both';
+      } 
+      // 2. Turnos individuales (Excluyentes)
+      else if (hasDec26) {
+        status = '26-Dec'; // 74 registros
+      } else if (hasJan02) {
+        status = '02-Jan'; // 127 registros
+      } 
+      // 3. Estados operativos
+      else if (f.includes('vacaciones')) {
+        status = 'Vacations';
       } else if (f.includes('no sale')) {
-        status = 'Working'; // 20 personas
+        status = 'Working';
       } else if (f.includes('incapacitado')) {
-        status = 'Sick'; // 2 personas
+        status = 'Sick';
       } else if (f.includes('sin confirmar')) {
-        status = 'Unconfirmed'; // 6 personas
+        status = 'Unconfirmed';
       }
       
       return { ...emp, status };
@@ -70,18 +79,6 @@ const App: React.FC = () => {
   }, []);
 
   const locations = useMemo(() => ['All', ...Array.from(new Set(processedData.map(d => normalizeLoc(d.ubicacion))))], [processedData]);
-  
-  // Categorías interactivas
-  const statuses = [
-    { id: 'All', label: 'Todos' },
-    { id: '26-Dec', label: '26-Dic' },
-    { id: '02-Jan', label: '02-Ene' },
-    { id: 'Both', label: 'Ambos' },
-    { id: 'Working', label: 'Activos' },
-    { id: 'Vacations', label: 'Vacaciones' },
-    { id: 'Sick', label: 'Incapacitados' },
-    { id: 'Unconfirmed', label: 'Pendientes' }
-  ];
 
   const filteredData = useMemo(() => {
     return processedData.filter(emp => {
@@ -107,281 +104,257 @@ const App: React.FC = () => {
     };
   }, [processedData]);
 
-  const chartDataUbicacion = useMemo(() => {
+  const locationStats = useMemo(() => {
     const counts: Record<string, number> = {};
     processedData.forEach(d => {
       const loc = normalizeLoc(d.ubicacion);
       counts[loc] = (counts[loc] || 0) + 1;
     });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [processedData]);
-
-  const chartDataStatus = useMemo(() => {
-    const counts: Record<string, number> = {};
-    processedData.forEach(d => {
-      counts[d.status] = (counts[d.status] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [processedData]);
-
-  const COLORS = ['#06b6d4', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#94a3b8'];
 
   return (
     <div className="flex min-h-screen bg-[#020617] text-slate-200">
-      {/* HUD Background Decorations */}
-      <div className="fixed inset-0 pointer-events-none opacity-20 z-0">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full"></div>
-      </div>
-
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 glass-effect transform transition-all duration-500 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} border-r border-white/5`}>
+      {/* Sidebar Navigation */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 glass-effect border-r border-white/5 transition-transform duration-500 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 h-full flex flex-col">
           <div className="flex items-center gap-4 mb-12">
-            <div className="w-12 h-12 flex items-center justify-center bg-cyan-500 rounded-2xl shadow-[0_0_25px_rgba(6,182,212,0.4)]">
-              <Activity size={24} className="text-white" />
+            <div className="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+              <Activity className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="font-futuristic text-xl font-black tracking-tighter text-white uppercase leading-none">NEXUS</h1>
-              <span className="text-[10px] text-cyan-500 font-bold tracking-[0.2em]">ANALYTICS v4.0</span>
+              <h1 className="font-futuristic text-lg font-black text-white leading-none tracking-tighter">NEXUS</h1>
+              <span className="text-[8px] text-cyan-500 font-bold tracking-[0.3em] uppercase">Control Panel</span>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-3">
+          <nav className="flex-1 space-y-2">
             {[
-              { label: 'Visión General', icon: LayoutDashboard, active: true },
-              { label: 'Personal Activo', icon: Users },
-              { label: 'Cronograma', icon: Calendar },
-              { label: 'Geolocalización', icon: MapPin },
-            ].map((item, idx) => (
-              <a key={idx} href="#" className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${item.active ? 'bg-white/5 border border-white/10 text-cyan-400' : 'hover:bg-white/5 text-slate-500 hover:text-slate-300'}`}>
-                <item.icon size={20} />
-                <span className="font-semibold text-sm">{item.label}</span>
-              </a>
+              { id: 'dashboard', label: 'Visión General', icon: LayoutDashboard },
+              { id: 'personnel', label: 'Personal', icon: Users },
+              { id: 'calendar', label: 'Cronograma', icon: Calendar },
+              { id: 'map', label: 'Frentes', icon: MapPin },
+            ].map((item) => (
+              <button 
+                key={item.id}
+                onClick={() => { setActiveView(item.id as ViewType); setSidebarOpen(false); }}
+                className={`flex items-center gap-4 p-4 w-full rounded-2xl transition-all duration-300 ${
+                  activeView === item.id 
+                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-inner' 
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <item.icon size={18} />
+                <span className="font-bold text-[10px] uppercase tracking-widest">{item.label}</span>
+              </button>
             ))}
           </nav>
 
-          <div className="mt-auto">
-             <div className="p-5 bg-slate-900/50 rounded-3xl border border-white/5 mb-6">
-               <div className="flex items-center gap-2 mb-3 text-cyan-400">
-                 <ShieldAlert size={16} />
-                 <span className="text-[10px] font-bold uppercase tracking-widest">Sincronización</span>
-               </div>
-               <p className="text-[10px] text-slate-500 leading-tight">Datos validados para la aprobación de jornada compensatoria.</p>
-             </div>
-             <button className="flex items-center gap-4 p-4 w-full rounded-2xl bg-red-500/5 border border-red-500/10 text-slate-500 hover:text-red-400 transition-all font-bold text-sm">
-                <LogOut size={20} />
-                <span>LOGOUT</span>
-             </button>
-          </div>
+          <button className="flex items-center gap-4 p-4 mt-auto text-slate-600 hover:text-red-400 transition-colors font-black text-[10px] tracking-[0.2em] uppercase">
+            <LogOut size={18} />
+            <span>Salir</span>
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 lg:ml-72 p-6 lg:p-10 space-y-8 overflow-y-auto max-h-screen relative z-10">
-        {/* TOP HUD COUNTER - REQUERIDO POR EL USUARIO */}
-        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-[2rem] backdrop-blur-xl">
-            <div className="flex items-center gap-6">
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-cyan-500 tracking-[0.3em] uppercase">Data Index</span>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-futuristic font-black text-white">{filteredData.length}</span>
-                        <span className="text-slate-500 font-bold text-sm">/ {processedData.length}</span>
-                    </div>
+      {/* Main Content Area */}
+      <main className="flex-1 lg:ml-64 p-6 lg:p-10 space-y-8 overflow-y-auto h-screen relative">
+        {/* HUD MONITOR SUPERIOR */}
+        <header className="sticky top-0 z-40">
+          <div className="glass-effect p-6 rounded-[2rem] border border-white/10 backdrop-blur-3xl shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-8">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-cyan-500 tracking-[0.4em] uppercase mb-1">Index Monitor</span>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-5xl font-futuristic font-black text-white tracking-tighter">
+                    {filteredData.length}
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-slate-500 font-bold text-lg leading-none">/ {processedData.length}</span>
+                    <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest mt-1">Colaboradores</span>
+                  </div>
                 </div>
-                <div className="h-10 w-px bg-white/10 hidden md:block"></div>
-                <div className="hidden md:flex flex-col">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Integridad de Datos</span>
-                    <div className="flex items-center gap-2 text-emerald-500">
-                        <Zap size={14} />
-                        <span className="text-xs font-black uppercase">Sistema Operativo</span>
-                    </div>
+              </div>
+              
+              <div className="hidden xl:flex items-center gap-4 px-8 border-l border-white/10">
+                <div className="p-3 bg-cyan-500/5 rounded-2xl border border-cyan-500/10">
+                  <ListFilter size={20} className="text-cyan-400" />
                 </div>
+                <div>
+                  <span className="text-[9px] font-black text-slate-500 uppercase block tracking-widest mb-1">Capa Activa</span>
+                  <span className="text-xs font-black text-white uppercase tracking-tight">
+                    {statusFilter === 'All' ? 'Consolidado General' : statusFilter === 'Both' ? 'Doble Descanso' : `Receso: ${statusFilter}`}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-                <div className="hidden sm:flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Filtro Activo</span>
-                    <span className="text-xs font-black text-white uppercase tracking-tighter bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
-                        {statusFilter === 'All' ? 'Sin Restricción' : statuses.find(s => s.id === statusFilter)?.label}
-                    </span>
-                </div>
-                <button 
-                  onClick={() => {setSearchTerm(''); setStatusFilter('All'); setLocationFilter('All');}}
-                  className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 text-slate-400 transition-all" title="Resetear Filtros">
-                    <Activity size={20} />
-                </button>
-            </div>
-        </div>
 
-        {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <h2 className="text-5xl font-futuristic font-black text-white tracking-tighter uppercase leading-none">
-              Control <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">Interactiva</span>
-            </h2>
-            <p className="text-slate-500 mt-2 font-bold text-sm tracking-widest">PRESENTACIÓN A DIRECCIÓN DE PROYECTO</p>
-          </div>
-          <div className="flex gap-4">
-             <button className="px-8 py-4 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-white font-black font-futuristic transition-all shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 text-sm">
-                APROBAR COMPENSATORIO
-             </button>
-          </div>
-        </header>
-
-        {/* Stats Grid - Precisely Matching User's Request (242 Total) */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard 
-            title="TOTAL REGISTROS" value={stats.total} icon={Database} color="bg-cyan-500" shadowColor="shadow-cyan-500/20" 
-            active={statusFilter === 'All'} onClick={() => setStatusFilter('All')}
-          />
-          <StatCard 
-            title="RECESO 26-DIC (74)" value={stats.dec26} icon={Calendar} color="bg-purple-500" shadowColor="shadow-purple-500/20" 
-            active={statusFilter === '26-Dec'} onClick={() => setStatusFilter('26-Dec')}
-          />
-          <StatCard 
-            title="RECESO 02-ENE (127)" value={stats.jan02} icon={Calendar} color="bg-blue-600" shadowColor="shadow-blue-600/20" 
-            active={statusFilter === '02-Jan'} onClick={() => setStatusFilter('02-Jan')}
-          />
-          <StatCard 
-            title="TRABAJAN (20)" value={stats.working} icon={CheckCircle2} color="bg-emerald-500" shadowColor="shadow-emerald-500/20" 
-            active={statusFilter === 'Working'} onClick={() => setStatusFilter('Working')}
-          />
-          <StatCard 
-            title="VACACIONES (10)" value={stats.vacations} icon={Tent} color="bg-orange-500" shadowColor="shadow-orange-500/20" 
-            active={statusFilter === 'Vacations'} onClick={() => setStatusFilter('Vacations')}
-          />
-          <StatCard 
-            title="DOBLE RECESO (3)" value={stats.both} icon={Zap} color="bg-indigo-500" shadowColor="shadow-indigo-500/20" 
-            active={statusFilter === 'Both'} onClick={() => setStatusFilter('Both')}
-          />
-          <StatCard 
-            title="PENDIENTES (6)" value={stats.unconfirmed} icon={AlertCircle} color="bg-slate-500" shadowColor="shadow-slate-500/20" 
-            active={statusFilter === 'Unconfirmed'} onClick={() => setStatusFilter('Unconfirmed')}
-          />
-          <StatCard 
-            title="INCAPACITADOS (2)" value={stats.sick} icon={ShieldAlert} color="bg-red-500" shadowColor="shadow-red-500/20" 
-            active={statusFilter === 'Sick'} onClick={() => setStatusFilter('Sick')}
-          />
-        </section>
-
-        {/* Filters HUD */}
-        <div className="glass-effect p-6 rounded-3xl border border-white/5 flex flex-wrap items-center gap-6">
-            <div className="relative flex-1 min-w-[300px]">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+            <div className="flex items-center gap-3">
+              <div className="relative group">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={18} />
                 <input 
                   type="text" 
-                  placeholder="Filtrar por Nombre, Documento o Cargo..."
-                  className="bg-slate-950/80 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-cyan-500 transition-all w-full font-medium"
+                  placeholder="Buscar nombre o ID..."
+                  className="bg-slate-950/80 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-xs font-bold focus:outline-none focus:border-cyan-500/50 w-full md:w-80 transition-all shadow-inner"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+              </div>
+              <button 
+                onClick={() => { setSearchTerm(''); setStatusFilter('All'); setLocationFilter('All'); }}
+                className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 border border-white/5 text-slate-400 transition-all hover:text-cyan-400"
+              >
+                <ArrowRightLeft size={20} />
+              </button>
+              <button className="lg:hidden p-4 bg-cyan-500/10 rounded-2xl text-cyan-400" onClick={() => setSidebarOpen(true)}>
+                <Menu size={20} />
+              </button>
             </div>
-            <div className="flex gap-4 w-full md:w-auto">
-                <div className="flex flex-col gap-1 w-full md:w-56">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Ubicación</span>
+          </div>
+        </header>
+
+        {activeView === 'dashboard' && (
+          <>
+            <div className="flex flex-col gap-1">
+                <h2 className="text-3xl font-futuristic font-black text-white tracking-tighter uppercase">Visión <span className="text-cyan-500">General</span></h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Distribución de recesos compensatorios - Periodo 2025/2026</p>
+            </div>
+
+            {/* Stats Grid - EXACTOS: 74, 127, 3 */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <StatCard 
+                title="RECESO 26-DIC" value={stats.dec26} icon={Calendar} color="text-purple-400" 
+                active={statusFilter === '26-Dec'} onClick={() => setStatusFilter('26-Dec')} 
+                subtitle="Excluye Mixtos"
+              />
+              <StatCard 
+                title="RECESO 02-ENE" value={stats.jan02} icon={Calendar} color="text-blue-400" 
+                active={statusFilter === '02-Jan'} onClick={() => setStatusFilter('02-Jan')} 
+                subtitle="Excluye Mixtos"
+              />
+              <StatCard 
+                title="AMBOS DÍAS" value={stats.both} icon={Zap} color="text-indigo-400" 
+                active={statusFilter === 'Both'} onClick={() => setStatusFilter('Both')} 
+                subtitle="Descanso Doble"
+              />
+              <StatCard 
+                title="SIN SALIDA" value={stats.working} icon={CheckCircle2} color="text-emerald-400" 
+                active={statusFilter === 'Working'} onClick={() => setStatusFilter('Working')} 
+                subtitle="Operativo"
+              />
+              <StatCard title="VACACIONES" value={stats.vacations} icon={Tent} color="text-orange-400" active={statusFilter === 'Vacations'} onClick={() => setStatusFilter('Vacations')} />
+              <StatCard title="PENDIENTES" value={stats.unconfirmed} icon={AlertCircle} color="text-slate-400" active={statusFilter === 'Unconfirmed'} onClick={() => setStatusFilter('Unconfirmed')} />
+              <StatCard title="INCAPACITADOS" value={stats.sick} icon={ShieldAlert} color="text-red-400" active={statusFilter === 'Sick'} onClick={() => setStatusFilter('Sick')} />
+              <StatCard title="TOTAL GENERAL" value={stats.total} icon={Database} color="text-cyan-400" active={statusFilter === 'All'} onClick={() => setStatusFilter('All')} />
+            </section>
+
+            {/* Tabla Integrada */}
+            <section className="glass-effect rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl transition-all">
+              <div className="p-8 border-b border-white/5 flex flex-wrap items-center justify-between gap-6 bg-white/[0.01]">
+                <div className="flex items-center gap-4">
+                  <div className="w-1.5 h-8 bg-cyan-500 rounded-full"></div>
+                  <h3 className="text-xl font-futuristic font-black tracking-tight uppercase text-white">Detalle de Personal</h3>
+                </div>
+                <div className="flex items-center gap-4">
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Filtrar por Frente:</span>
                     <select 
-                        className="bg-slate-950/80 border border-white/10 rounded-2xl px-6 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all appearance-none cursor-pointer text-slate-300 font-bold"
-                        value={locationFilter}
-                        onChange={(e) => setLocationFilter(e.target.value)}
+                      className="bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase focus:outline-none focus:border-cyan-500 cursor-pointer text-slate-300"
+                      value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
                     >
-                        {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                      {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
                     </select>
                 </div>
-                <div className="flex flex-col gap-1 w-full md:w-56">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Categoría</span>
-                    <select 
-                        className="bg-slate-950/80 border border-white/10 rounded-2xl px-6 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all appearance-none cursor-pointer text-slate-300 font-bold"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                        {statuses.map(st => <option key={st.id} value={st.id}>{st.label}</option>)}
-                    </select>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-white/[0.02] text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                      <th className="px-8 py-6">Identificación</th>
+                      <th className="px-8 py-6">Nombre Completo</th>
+                      <th className="px-8 py-6">Cargo / Posición</th>
+                      <th className="px-8 py-6">Ubicación</th>
+                      <th className="px-8 py-6 text-center">Programación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredData.length > 0 ? filteredData.map((emp) => (
+                      <tr key={emp.id} className="hover:bg-cyan-500/[0.03] transition-all group">
+                        <td className="px-8 py-5 font-mono text-[11px] text-slate-500 group-hover:text-cyan-400">#{emp.id}</td>
+                        <td className="px-8 py-5">
+                          <span className="font-bold text-white uppercase text-xs group-hover:translate-x-1 transition-transform inline-block">{emp.nombre}</span>
+                        </td>
+                        <td className="px-8 py-5 text-[10px] text-slate-400 uppercase font-bold">{emp.cargo}</td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-2 text-slate-300 text-[11px] font-bold">
+                            <MapPin size={14} className="text-cyan-500/40" />
+                            {normalizeLoc(emp.ubicacion)}
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-center">
+                          <span className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase border tracking-widest ${
+                            emp.status === 'Working' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                            emp.status === 'Both' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                            emp.status === '26-Dec' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                            emp.status === '02-Jan' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                          }`}>
+                            {emp.fechaDescanso}
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-32 text-center text-slate-500 font-futuristic uppercase tracking-[0.3em]">
+                            Búsqueda sin resultados
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* Otras vistas simplificadas para enfoque en Visión General */}
+        {activeView === 'calendar' && (
+          <div className="p-20 glass-effect rounded-[3rem] border border-white/5 text-center">
+            <Calendar size={100} className="mx-auto mb-8 text-cyan-500/40" />
+            <h3 className="text-4xl font-futuristic font-black text-white mb-6 uppercase">Cronograma Operativo</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+                <div className="p-8 bg-white/5 rounded-3xl border border-white/5">
+                    <div className="text-4xl font-futuristic text-purple-400 mb-2">{stats.dec26}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">26 de Diciembre</div>
+                </div>
+                <div className="p-8 bg-white/5 rounded-3xl border border-white/5">
+                    <div className="text-4xl font-futuristic text-blue-400 mb-2">{stats.jan02}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">02 de Enero</div>
+                </div>
+                <div className="p-8 bg-white/5 rounded-3xl border border-white/5">
+                    <div className="text-4xl font-futuristic text-indigo-400 mb-2">{stats.both}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ambas Fechas</div>
                 </div>
             </div>
-        </div>
-
-        {/* Data Table Section */}
-        <section className="glass-effect rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-          <div className="p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-            <h3 className="text-xl font-futuristic font-black flex items-center gap-4">
-              <div className="w-1.5 h-6 bg-cyan-500"></div>
-              REGISTROS FILTRADOS
-            </h3>
-            <span className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-black text-slate-400 tracking-widest border border-white/10">
-                RESULTADOS: {filteredData.length}
-            </span>
           </div>
+        )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white/[0.03] text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                  <th className="px-8 py-6">ID</th>
-                  <th className="px-8 py-6">Personal</th>
-                  <th className="px-8 py-6">Cargo</th>
-                  <th className="px-8 py-6">Ubicación</th>
-                  <th className="px-8 py-6">Programación</th>
-                  <th className="px-8 py-6 text-center">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredData.length > 0 ? filteredData.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-white/[0.04] transition-all group cursor-default">
-                    <td className="px-8 py-5 font-mono text-xs text-slate-500 group-hover:text-cyan-500">#{emp.id}</td>
-                    <td className="px-8 py-5">
-                      <span className="font-bold text-white group-hover:translate-x-1 transition-transform inline-block">{emp.nombre}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-xs text-slate-400 uppercase tracking-tighter">
-                        {emp.cargo}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2 text-slate-400 text-sm">
-                        {emp.ubicacion.toLowerCase().includes('bodega') ? <Building2 size={14} className="text-blue-400" /> :
-                         emp.ubicacion.toLowerCase().includes('cond') ? <Truck size={14} className="text-orange-400" /> :
-                         <Tent size={14} className="text-emerald-400" />}
-                        {normalizeLoc(emp.ubicacion)}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-xs font-semibold text-slate-300">
-                        {emp.fechaDescanso}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-center">
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest ${
-                        emp.status === 'Working' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                        emp.status === 'Sick' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                        emp.status === 'Vacations' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                        emp.status === 'Unconfirmed' ? 'bg-slate-500/10 text-slate-500 border-slate-500/20' :
-                        'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
-                      }`}>
-                        {emp.status.replace('-', ' ')}
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={6} className="px-8 py-20 text-center text-slate-600 font-futuristic text-xl tracking-widest opacity-50">
-                      SIN RESULTADOS PARA LOS CRITERIOS ACTUALES
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {activeView === 'map' && (
+          <div className="p-12 glass-effect rounded-[3rem] border border-white/5">
+             <div className="flex items-center gap-6 mb-12">
+                <MapPin className="text-cyan-500" size={40} />
+                <h3 className="text-3xl font-futuristic font-black text-white uppercase">Carga por Frentes</h3>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {locationStats.map((loc, i) => (
+                    <div key={i} className="p-6 bg-slate-950/50 rounded-2xl border border-white/5 flex justify-between items-center group hover:border-cyan-500/30 transition-all">
+                        <span className="text-xs font-black uppercase tracking-tighter text-slate-300 group-hover:text-white transition-colors">{loc.name}</span>
+                        <span className="text-2xl font-futuristic font-black text-cyan-500">{loc.value}</span>
+                    </div>
+                ))}
+             </div>
           </div>
-        </section>
-
-        {/* Action Bottom Bar */}
-        <div className="flex items-center justify-center pt-6 pb-20">
-            <button className="px-12 py-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[2rem] shadow-2xl shadow-emerald-500/40 hover:scale-105 transition-all flex items-center gap-6">
-                <CheckCircle2 size={28} />
-                <span className="font-black font-futuristic text-lg tracking-tighter">FINALIZAR Y ENVIAR JORNADA</span>
-            </button>
-        </div>
+        )}
       </main>
     </div>
   );
