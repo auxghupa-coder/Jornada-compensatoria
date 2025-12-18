@@ -281,7 +281,7 @@ const StatCard = ({ title, value, icon: Icon, color, active, onClick, subtitle }
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
-  const [locationFilter, setLocationFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('Todo');
   const [statusFilter, setStatusFilter] = useState('All');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -361,14 +361,14 @@ const App: React.FC = () => {
     });
   }, [employees]);
 
-  const locations = useMemo(() => ['All', ...Array.from(new Set(processedData.map(d => normalizeLoc(d.ubicacion))))], [processedData]);
+  const locations = useMemo(() => ['Todo', ...Array.from(new Set(processedData.map(d => normalizeLoc(d.ubicacion))))], [processedData]);
 
   const filteredData = useMemo(() => {
     return processedData.filter(emp => {
       const matchesSearch = emp.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            emp.id.includes(searchTerm) || 
                            emp.cargo.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesLocation = locationFilter === 'All' || normalizeLoc(emp.ubicacion) === locationFilter;
+      const matchesLocation = locationFilter === 'Todo' || normalizeLoc(emp.ubicacion) === locationFilter;
       const matchesStatus = statusFilter === 'All' || emp.status === statusFilter;
       return matchesSearch && matchesLocation && matchesStatus;
     });
@@ -487,7 +487,7 @@ const App: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => { setSearchTerm(''); setStatusFilter('All'); setLocationFilter('All'); }}
+                onClick={() => { setSearchTerm(''); setStatusFilter('All'); setLocationFilter('Todo'); }}
                 className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 border border-white/5 text-slate-400 transition-all hover:text-cyan-400"
               >
                 <RefreshCw size={20} />
