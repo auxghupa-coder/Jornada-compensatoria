@@ -5,9 +5,10 @@ export interface Employee {
   cargo: string;
   fechaDescanso: string;
   ubicacion: string;
+  observacion?: string; // Campo para las notas de gerencia
 }
 
-export type PersonnelStatus = 'Resting' | 'Working' | 'Vacations' | 'Sick' | 'Unconfirmed';
+export type PersonnelStatus = 'Resting' | 'Working' | 'Vacations' | 'Sick' | 'Unconfirmed' | 'Both' | '26-Dec' | '02-Jan';
 
 export interface DashboardStats {
   totalPersonnel: number;
